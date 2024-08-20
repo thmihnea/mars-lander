@@ -1,6 +1,7 @@
 from typing import Any, Callable, Tuple
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 class InitialConditions(object):
 
@@ -72,13 +73,13 @@ class Dynamics(object):
 
         return position_list, velocity_list
     
-def make_integrator(r_zero: np.ndarray, v_zero: np.ndarray) -> Dynamics:
+def make_integrator(r_zero: np.ndarray, v_zero: np.ndarray, dt: float, t_max: int) -> Dynamics:
     conditions = InitialConditions()
     conditions.add_condition('G', 6.6743e-11)
     conditions.add_condition('M', 6.42e23)
     conditions.add_condition('m', 1)
-    conditions.add_condition('dt', 1)
-    conditions.add_condition('t_max', 100)
+    conditions.add_condition('dt', dt)
+    conditions.add_condition('t_max', t_max)
     conditions.add_condition('r_zero', r_zero)
     conditions.add_condition('v_zero', v_zero)
 
@@ -90,4 +91,74 @@ def make_integrator(r_zero: np.ndarray, v_zero: np.ndarray) -> Dynamics:
         return - G * M * m * position / (np.linalg.norm(position) ** 3)
 
     return Dynamics(conditions=conditions, force_rule=rule)
-    
+
+def plot_altitude(dynamics: Dynamics) -> None:
+    e_r, _ = dynamics.euler()
+    v_r, _ = dynamics.verlet()
+
+    plt.figure(1)
+    plt.clf()
+    plt.xlabel('Time (s)')
+    plt.ylabel('Altitude')
+    plt.grid()
+    plt.plot(dynamics.t_array, v_r[:, 2], label='Verlet Altitude')
+    plt.plot(dynamics.t_array, e_r[:, 2], label='Euler Altitude')
+    plt.legend()
+    plt.show()
+
+def plot_trajectory(dynamics: Dynamics) -> None:
+    e_r, _ = dynamics.euler()
+    v_r, _ = dynamics.euler()
+
+    plt.figure(2)
+    plt.clf()
+    plt.xlabel('x-coordinate')
+    plt.ylabel('y-coordinate')
+    plt.plot(e_r[:, 0], e_r[:, 1], label='Euler Trajectory')
+    plt.plot(v_r[:, 0], v_r[:, 1], label='Verlet Trajectory')
+    plt.legend()
+    plt.show()
+
+if __name__ == '__main__':
+    """
+    This entry point is used for generating the plots
+    required within the second assignment.
+
+    It saves them in ../answers
+    """
+
+    v_circ = np.sqrt(6.6743e-11 * 6.42e23 / 7000e3)
+    v_esc = np.sqrt(2) * v_circ
+
+    straight_descent = make_integrator(
+        np.array([0, 0, 7000e3]),
+        np.array([0, 0, 0]),
+        0.1,
+        1000
+    )
+
+    circular_orbit = make_integrator(
+        np.array([7000e3, 0, 0]),
+        np.array([0, v_circ, 0]),
+        1,
+        20000
+    )
+
+    elliptical_orbit = make_integrator(
+        np.array([7000e3, 0, 0]),
+        np.array([0, 0.9 * v_circ, 0]),
+        1,
+        20000
+    )
+
+    hyperbolic_escape = make_integrator(
+        np.array([7000e3, 0, 0]),
+        np.array([0, v_esc, 0]),
+        1,
+        400000
+    )
+
+    plot_altitude(straight_descent)
+    plot_trajectory(circular_orbit)
+    plot_trajectory(elliptical_orbit)
+    plot_trajectory(hyperbolic_escape)
