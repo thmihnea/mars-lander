@@ -47,16 +47,40 @@ class Dynamics(object):
             velocity_list[i] = v_next
         
         return position_list, velocity_list
+    
+    def verlet(self) -> Tuple[np.ndarray, np.ndarray]:
+        position_list: np.ndarray = np.empty((len(self.t_array), 3))
+        velocity_list: np.ndarray = np.empty((len(self.t_array), 3))
 
-if __name__ == '__main__':
+        r_zero = self.conditions.get_condition('r_zero')
+        v_zero = self.conditions.get_condition('v_zero')
+        mass = self.conditions.get_condition('m')
+
+        position_list[0] = r_zero
+        position_list[1] = r_zero + v_zero * self.dt + 0.5 * self.dt**2 * self.get_force(r_zero) / mass
+
+        for i in range(2, len(self.t_array)):
+            force = self.get_force(position_list[i - 1])
+            position_list[i] = 2 * position_list[i - 1] - position_list[i - 2] + self.dt ** 2 * force / mass
+
+        for i in range(1, len(self.t_array) - 1):
+            v_next = (position_list[i + 1] - position_list[i - 1]) / (2 * self.dt)
+            velocity_list[i] = v_next
+
+        v_last = (position_list[-1] - position_list[-2]) / self.dt
+        velocity_list[-1] = v_last
+
+        return position_list, velocity_list
+    
+def make_integrator(r_zero: np.ndarray, v_zero: np.ndarray) -> Dynamics:
     conditions = InitialConditions()
     conditions.add_condition('G', 6.6743e-11)
     conditions.add_condition('M', 6.42e23)
     conditions.add_condition('m', 1)
-    conditions.add_condition('dt', 0.1)
+    conditions.add_condition('dt', 1)
     conditions.add_condition('t_max', 100)
-    conditions.add_condition('r_zero', np.array([1e5, 1e5, 1e5]))
-    conditions.add_condition('v_zero', np.array([0, 0, 0]))
+    conditions.add_condition('r_zero', r_zero)
+    conditions.add_condition('v_zero', v_zero)
 
     def rule(conditions: InitialConditions, position: np.ndarray):
         G = conditions.get_condition('G')
@@ -65,5 +89,5 @@ if __name__ == '__main__':
 
         return - G * M * m * position / (np.linalg.norm(position) ** 3)
 
-    dynamics = Dynamics(conditions=conditions, force_rule=rule)
+    return Dynamics(conditions=conditions, force_rule=rule)
     
