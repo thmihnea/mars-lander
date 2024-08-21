@@ -23,42 +23,49 @@ void autopilot (void)
   // INSERT YOUR CODE HERE
 }
 
-vector3d get_acceleration(vector3d pos, vector3d vel)
+vector3d get_acceleration()
 {
-  vector3d a, a_gravity, thrust, drag; 
-  double mass;
-  // acceleration due to gravity
-  a_gravity = -GRAVITY * MARS_MASS * position.norm() / position.abs2();
-  // thrust and drag forces
-  thrust = thrust_wrt_world();
-  drag = -atmospheric_density(position) * DRAG_COEF_LANDER * M_PI * pow(LANDER_SIZE, 2) * velocity.abs2() * velocity.norm();
-  // current mass of the lander
-  mass = fuel * FUEL_CAPACITY * FUEL_DENSITY;
-  // total acceleration
-  a = a_gravity + (thrust + drag) / mass;
-  return a;
+  double mass = UNLOADED_LANDER_MASS + fuel * FUEL_CAPACITY * FUEL_DENSITY;
+
+  vector3d thrust = thrust_wrt_world();
+  vector3d gravity = -(GRAVITY * MARS_MASS * mass) / (position.abs2()) * position.norm();
+  vector3d drag;
+
+  if (parachute_status == DEPLOYED)
+  {
+    drag = -0.5 * atmospheric_density(position) * velocity.abs2() * velocity.norm() *
+      (DRAG_COEF_CHUTE + DRAG_COEF_LANDER) * pow(LANDER_SIZE, 2) * (M_PI + 20);
+  }
+  else
+  {
+    drag = -0.5 * atmospheric_density(position) * velocity.abs2() * velocity.norm() *
+      DRAG_COEF_LANDER * pow(LANDER_SIZE, 2) * M_PI;
+  }
+
+  return (thrust + gravity + drag) / mass;
 }
 
 void numerical_dynamics (void)
   // This is the function that performs the numerical integration to update the
   // lander's pose. The time step is delta_t (global variable).
 {
-  vector3d acceleration = get_acceleration(position, velocity);
-  vector3d next_position;
+  static vector3d prev;
+  vector3d next;
+  vector3d acceleration = get_acceleration();
 
   if (simulation_time == 0.0f)
   {
-    next_position = position + delta_t * velocity;
+    next = position + delta_t * velocity;
     velocity = velocity + delta_t * acceleration;
-  } 
-  else 
+  }
+  else
   {
-    next_position = 2 * position - prev_position + pow(delta_t, 2) * acceleration;
-    velocity = 1 / (2 * delta_t) * (next_position - prev_position);
+    next = 2 * position - prev + pow(delta_t, 2) * acceleration;
+    velocity = 1 / (2 * delta_t) * (next - prev);
   }
 
-  prev_position = position;
-  position = next_position;
+  prev = position;
+  position = next;
 
   // Here we can apply an autopilot to adjust the thrust, parachute and attitude
   if (autopilot_enabled) autopilot();
